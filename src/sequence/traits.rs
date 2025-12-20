@@ -831,12 +831,14 @@ where
     #[must_use = "Peeking must serve a purpose!"]
     fn peek(&self) -> Pin<Box<dyn Future<Output = Self::ArcSwapRef> + Send + '_>>;
 
-    fn push_n<I>(&self, iter: I) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>
+    #[allow(non_snake_case)]
+    fn push_n<I>(&self, iter: I, ignore_errors: bool, AoN: bool) -> Pin<Box<dyn Future<Output = ()> + Send + '_>>
     where
         I: IntoIterator<Item = T> + Send + 'static,
         I::IntoIter: Send;
 
-    fn pop_n(&self, n: usize) -> Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>
+    #[allow(non_snake_case)]
+    fn pop_n(&self, n: usize, ignore_errors: bool, AoN: bool) -> Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>
     where
         T: Clone;
     

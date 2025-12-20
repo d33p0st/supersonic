@@ -1155,6 +1155,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     extracted_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, extracted_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", start + i, length);
                 }
             }
             
@@ -1188,7 +1193,7 @@ where
             let pointer = container.slots[index].load(std::sync::atomic::Ordering::Relaxed);
             if pointer.is_null() {
                 crate::drop!(container, synchronization_handle);
-                return Err(anyhow::anyhow!(format!("Index {} is empty in sequence of length {}. \'modify\' method can only operate on existing non-empty indexes.", index, length)));
+                panic!("Index {} is empty in sequence of length {}. \'modify\' method can only operate on existing non-empty indexes.", index, length);
             }
 
             let arc = unsafe {
@@ -1250,6 +1255,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     first_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, first_container, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             first_container.length.store(split_index, std::sync::atomic::Ordering::Release);
@@ -1266,6 +1276,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     second_container.slots[i - split_index].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             second_container.length.store(length - split_index, std::sync::atomic::Ordering::Release);
@@ -1310,6 +1325,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     reversed_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, reversed_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", length - 1 - i, length);
                 }
             }
             
@@ -1420,6 +1440,11 @@ where
                         let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     i += p as usize;
                 }
@@ -1443,6 +1468,11 @@ where
                         let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     
                     // Check if next iteration would underflow
@@ -1517,6 +1547,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     extracted_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, extracted_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", start + i, length);
                 }
             }
             
@@ -1612,6 +1647,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     first_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, first_container, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             first_container.length.store(split_index, std::sync::atomic::Ordering::Release);
@@ -1628,6 +1668,11 @@ where
                     
                     let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                     second_container.slots[i - split_index].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             second_container.length.store(length - split_index, std::sync::atomic::Ordering::Release);
@@ -1782,6 +1827,11 @@ where
                         let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     i += p as usize;
                 }
@@ -1805,6 +1855,11 @@ where
                         let new_pointer = Arc::into_raw(arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     
                     // Check if next iteration would underflow
@@ -1886,6 +1941,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     extracted_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, extracted_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", start + i, length);
                 }
             }
             
@@ -1936,6 +1996,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     reversed_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, reversed_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", length - 1 - i, length);
                 }
             }
             
@@ -2050,6 +2115,11 @@ where
                         let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     i += p as usize;
                 }
@@ -2079,6 +2149,11 @@ where
                         let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     
                     // Check if next iteration would underflow
@@ -2147,6 +2222,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     first_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, first_container, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             first_container.length.store(split_index, std::sync::atomic::Ordering::Release);
@@ -2169,6 +2249,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     second_container.slots[i - split_index].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             second_container.length.store(length - split_index, std::sync::atomic::Ordering::Release);
@@ -2241,6 +2326,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     extracted_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, extracted_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", start + i, length);
                 }
             }
             
@@ -2291,6 +2381,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     reversed_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, reversed_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", length - 1 - i, length);
                 }
             }
             
@@ -2405,6 +2500,11 @@ where
                         let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     i += p as usize;
                 }
@@ -2434,6 +2534,11 @@ where
                         let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                         sliced_container.slots[slot_idx].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
                         slot_idx += 1;
+                    } else {
+                        // This is an invariant violation
+                        // This has to panic as current rules dont allow a pointer to be null within bounds
+                        crate::drop!(container, synchronization_handle, sliced_container);
+                        panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                     }
                     
                     // Check if next iteration would underflow
@@ -2502,6 +2607,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     first_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, first_container, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             first_container.length.store(split_index, std::sync::atomic::Ordering::Release);
@@ -2524,6 +2634,11 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     second_container.slots[i - split_index].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, synchronization_handle, second_container);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", i, length);
                 }
             }
             second_container.length.store(length - split_index, std::sync::atomic::Ordering::Release);
@@ -2558,7 +2673,8 @@ where
             for i in 0..length {
                 let slot_pointer = container.slots[i].load(std::sync::atomic::Ordering::Acquire);
                 if slot_pointer.is_null() {
-                    // Empty slot, raise a panic
+                    // Invariant violation: empty slot found
+                    crate::drop!(container, synchronization_handle);
                     panic!("Cannot create snapshot: Sequence contains empty slots.");
                 } else {
                     let arc = unsafe {
@@ -2599,7 +2715,8 @@ where
             for i in 0..length {
                 let slot_pointer = container.slots[i].load(std::sync::atomic::Ordering::Acquire);
                 if slot_pointer.is_null() {
-                    // Empty slot, raise panic.
+                    // Invariant violation: empty slot found
+                    crate::drop!(container, synchronization_handle);
                     panic!("Cannot create snapshot: Sequence contains empty slots.");
                 } else {
                     let arc = unsafe {
@@ -3115,7 +3232,8 @@ where
         })
     }
 
-    fn pop_n(&self, n: usize) -> std::pin::Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>
+    #[allow(non_snake_case)]
+    fn pop_n(&self, n: usize, ignore_errors: bool, AoN: bool) -> std::pin::Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>
     where
         T: Clone
     {
@@ -3132,12 +3250,30 @@ where
 
             let length = container.length.load(std::sync::atomic::Ordering::Relaxed);
             
-            if n > length {
-                crate::drop!(container, synchronization_handle);
-                panic!("Stack underflow: Attempted to pop {} elements from a sequence of length {}.", n, length);
-            }
+            // NEW:
+            let actual_pop_count = if n > length {
+                if AoN {
+                    // All or Nothing: either pop exactly n or pop 0
+                    if ignore_errors {
+                        crate::drop!(container, synchronization_handle);
+                        return Sequence::allocate(1).await; // Return empty
+                    } else {
+                        crate::drop!(container, synchronization_handle);
+                        panic!("Stack underflow: Attempted to pop {} elements from a sequence of length {}.", n, length);
+                    }
+                } else {
+                    // Pop as many as available
+                    if !ignore_errors {
+                        crate::drop!(container, synchronization_handle);
+                        panic!("Stack underflow: Attempted to pop {} elements from a sequence of length {}.", n, length);
+                    }
+                    length // Pop all available
+                }
+            } else {
+                n // Can pop exactly n
+            };
 
-            let new_sequence = Sequence::allocate(n).await;
+            let new_sequence = Sequence::allocate(actual_pop_count.max(1)).await;
             let new_pointer = new_sequence.container.load(std::sync::atomic::Ordering::Relaxed);
             assert!(!new_pointer.is_null());
             let new_container = unsafe {
@@ -3147,8 +3283,8 @@ where
 
             // Pop is never reactive - we're removing elements from the original stack
             // So we clone values into the new sequence
-            for i in 0..n {
-                let index = length - n + i;
+            for i in 0..actual_pop_count {
+                let index = length - actual_pop_count + i;
                 let removed_ptr = container.slots[index].swap(std::ptr::null_mut(), std::sync::atomic::Ordering::Relaxed);
 
                 if !removed_ptr.is_null() {
@@ -3164,18 +3300,24 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     new_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, new_container, synchronization_handle);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", index, length);
                 }
             }
 
-            container.length.fetch_sub(n, std::sync::atomic::Ordering::Release);
-            new_container.length.store(n, std::sync::atomic::Ordering::Release);
+            container.length.fetch_sub(actual_pop_count, std::sync::atomic::Ordering::Release);
+            new_container.length.store(actual_pop_count, std::sync::atomic::Ordering::Release);
 
             crate::drop!(container, new_container, synchronization_handle);
             new_sequence
         })
     }
 
-    fn push_n<I>(&self, iter: I) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send + '_>>
+    #[allow(non_snake_case)]
+    fn push_n<I>(&self, iter: I, ignore_errors: bool, AoN: bool) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send + '_>>
         where
             I: IntoIterator<Item = T> + Send + 'static,
             I::IntoIter: Send {
@@ -3191,18 +3333,39 @@ where
 
             let mut length = container.length.load(std::sync::atomic::Ordering::Relaxed);
             let capacity = container.capacity.load(std::sync::atomic::Ordering::Relaxed);
+            let available_space = capacity - length;
 
-            for value in iter {
-                if length == capacity {
+            // Collect items to determine count
+            let items: Vec<T> = iter.into_iter().collect();
+            let items_count = items.len();
+
+            // Check if we can push all items
+            if items_count > available_space {
+                if AoN {
+                    // All or Nothing: either push all or push none
                     crate::drop!(container, synchronization_handle);
-                    panic!("Stack overflow: Attempted to push onto a full sequence.");
+                    if ignore_errors {
+                        return; // Push nothing
+                    } else {
+                        panic!("Stack overflow: Attempted to push {} elements but only {} slots available.", items_count, available_space);
+                    }
+                } else {
+                    // Push as many as fit
+                    if !ignore_errors {
+                        crate::drop!(container, synchronization_handle);
+                        panic!("Stack overflow: Attempted to push {} elements but only {} slots available.", items_count, available_space);
+                    }
                 }
+            }
 
+            let push_count = items_count.min(available_space);
+            for (idx, value) in items.into_iter().take(push_count).enumerate() {
                 let new_arc = Arc::new(RwLock::new(value));
                 let pointer_new = Arc::into_raw(new_arc) as *mut RwLock<T>;
-                container.slots[length].store(pointer_new, std::sync::atomic::Ordering::Relaxed);
-                length += 1;
+                container.slots[length + idx].store(pointer_new, std::sync::atomic::Ordering::Relaxed);
             }
+
+            length += push_count;
 
             container.length.store(length, std::sync::atomic::Ordering::Release);
             crate::drop!(container, synchronization_handle);
@@ -3422,7 +3585,8 @@ where
         })
     }
 
-    fn pop_n(&self, n: usize) -> std::pin::Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>
+    #[allow(non_snake_case)]
+    fn pop_n(&self, n: usize, ignore_errors: bool, AoN: bool) -> std::pin::Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>
     where
         T: Clone
     {
@@ -3439,12 +3603,30 @@ where
 
             let length = container.length.load(std::sync::atomic::Ordering::Relaxed);
             
-            if n > length {
-                crate::drop!(container, synchronization_handle);
-                panic!("Stack underflow: Attempted to pop {} elements from a sequence of length {}.", n, length);
-            }
+            // NEW:
+            let actual_pop_count = if n > length {
+                if AoN {
+                    // All or Nothing: either pop exactly n or pop 0
+                    if ignore_errors {
+                        crate::drop!(container, synchronization_handle);
+                        return Sequence::allocate(1).await; // Return empty
+                    } else {
+                        crate::drop!(container, synchronization_handle);
+                        panic!("Stack underflow: Attempted to pop {} elements from a sequence of length {}.", n, length);
+                    }
+                } else {
+                    // Pop as many as available
+                    if !ignore_errors {
+                        crate::drop!(container, synchronization_handle);
+                        panic!("Stack underflow: Attempted to pop {} elements from a sequence of length {}.", n, length);
+                    }
+                    length // Pop all available
+                }
+            } else {
+                n // Can pop exactly n
+            };
 
-            let new_sequence = Sequence::allocate(n).await;
+            let new_sequence = Sequence::allocate(actual_pop_count.max(1)).await;
             let new_pointer = new_sequence.container.load(std::sync::atomic::Ordering::Relaxed);
             assert!(!new_pointer.is_null());
             let new_container = unsafe {
@@ -3454,8 +3636,8 @@ where
 
             // Pop is never reactive - we're removing elements from the original stack
             // So we clone values into the new sequence
-            for i in 0..n {
-                let index = length - n + i;
+            for i in 0..actual_pop_count {
+                let index = length - actual_pop_count + i;
                 let removed_ptr = container.slots[index].swap(std::ptr::null_mut(), std::sync::atomic::Ordering::Relaxed);
 
                 if !removed_ptr.is_null() {
@@ -3471,18 +3653,24 @@ where
                     let new_arc = Arc::new(RwLock::new(value));
                     let new_pointer = Arc::into_raw(new_arc) as *mut RwLock<T>;
                     new_container.slots[i].store(new_pointer, std::sync::atomic::Ordering::Relaxed);
+                } else {
+                    // This is an invariant violation
+                    // This has to panic as current rules dont allow a pointer to be null within bounds
+                    crate::drop!(container, new_container, synchronization_handle);
+                    panic!("Invariant violation: slot at index {} is null within bounds (length {}).", index, length);
                 }
             }
 
-            container.length.fetch_sub(n, std::sync::atomic::Ordering::Release);
-            new_container.length.store(n, std::sync::atomic::Ordering::Release);
+            container.length.fetch_sub(actual_pop_count, std::sync::atomic::Ordering::Release);
+            new_container.length.store(actual_pop_count, std::sync::atomic::Ordering::Release);
 
             crate::drop!(container, new_container, synchronization_handle);
             new_sequence
         })
     }
 
-    fn push_n<I>(&self, iter: I) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send + '_>>
+    #[allow(non_snake_case)]
+    fn push_n<I>(&self, iter: I, ignore_errors: bool, AoN: bool) -> std::pin::Pin<Box<dyn Future<Output = ()> + Send + '_>>
         where
             I: IntoIterator<Item = T> + Send + 'static,
             I::IntoIter: Send {
@@ -3498,18 +3686,39 @@ where
 
             let mut length = container.length.load(std::sync::atomic::Ordering::Relaxed);
             let capacity = container.capacity.load(std::sync::atomic::Ordering::Relaxed);
+            let available_space = capacity - length;
 
-            for value in iter {
-                if length == capacity {
+            // Collect items to determine count
+            let items: Vec<T> = iter.into_iter().collect();
+            let items_count = items.len();
+
+            // Check if we can push all items
+            if items_count > available_space {
+                if AoN {
+                    // All or Nothing: either push all or push none
                     crate::drop!(container, synchronization_handle);
-                    panic!("Stack overflow: Attempted to push onto a full sequence.");
+                    if ignore_errors {
+                        return; // Push nothing
+                    } else {
+                        panic!("Stack overflow: Attempted to push {} elements but only {} slots available.", items_count, available_space);
+                    }
+                } else {
+                    // Push as many as fit
+                    if !ignore_errors {
+                        crate::drop!(container, synchronization_handle);
+                        panic!("Stack overflow: Attempted to push {} elements but only {} slots available.", items_count, available_space);
+                    }
                 }
+            }
 
+            let push_count = items_count.min(available_space);
+            for (idx, value) in items.into_iter().take(push_count).enumerate() {
                 let new_arc = Arc::new(RwLock::new(value));
                 let pointer_new = Arc::into_raw(new_arc) as *mut RwLock<T>;
-                container.slots[length].store(pointer_new, std::sync::atomic::Ordering::Relaxed);
-                length += 1;
+                container.slots[length + idx].store(pointer_new, std::sync::atomic::Ordering::Relaxed);
             }
+
+            length += push_count;
 
             container.length.store(length, std::sync::atomic::Ordering::Release);
             crate::drop!(container, synchronization_handle);
