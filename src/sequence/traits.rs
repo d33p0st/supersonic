@@ -465,26 +465,336 @@ where
 
 }
 
+
+/// ### -> `Reactive<T> Trait`.
+/// 
+/// Provides reactive operations for sequences, allowing for dynamic updates
+/// and modifications that reflect changes across related sequences.
+/// 
+/// ### -> `Reactivity`
+/// 
+/// Reactive sequences ensure that any modifications made to the original
+/// sequence are automatically reflected in derived sequences (like slices,
+/// reverses, etc.) and vice versa. This is particularly useful in scenarios
+/// where data consistency and synchronization are critical.
+///
+/// ### -> `Example Scenarios`
+/// 
+/// - Slicing a sequence with a negative step to create a reversed view:
+///     - Modifying an element in the original sequence should update the corresponding
+///       element in the reversed slice and vice versa.
+/// 
+/// - Reversing a sequence to create a new view:
+///     - Changes in the original sequence should be reflected in the reversed sequence,
+///       and modifications in the reversed sequence should update the original.
+///
+/// Type Parameters:
+/// - `T`: The type of elements stored in the sequence. Must implement `Send`, `Sync`, and have a static lifetime.
+///
+/// This trait typically works with both Sequence<T> and Arc<Sequence<T>> types,
+/// allowing for flexible reactive strategies in concurrent environments.
+///
+/// All methods in this trait are asynchronous and return pinned boxed futures (as async
+/// functions cannot be directly part of traits in Rust).
+/// 
+/// ### -> `Methods`
+/// 
+/// - `extract(range: Option<std::ops::Range<usize>>) -> Arc<Sequence<T>>`:
+///     - Asynchronously extracts a subsequence defined by the specified range.
+///     - The extracted subsequence maintains a reactive link to the original sequence,
+///       ensuring that changes in either sequence are reflected in the other.
+///     - This operation is similar to draining, but the original sequence retains its elements.
+/// 
+/// - `slice(start: Option<isize>, stop: Option<isize>, step: Option<isize>) -> Arc<Sequence<T>>`:
+///     - Asynchronously creates a sliced view of the sequence based on the provided parameters.
+///     - This is similar to Python-style slicing, supporting negative indices and steps.
+///     - The sliced sequence is reactive, meaning modifications in either the original
+///       sequence or the slice are reflected in both.
+/// 
+/// - `split(index: usize) -> (Arc<Sequence<T>>, Arc<Sequence<T>>)`:
+///     - Asynchronously splits the sequence into two at the specified index.
+///     - Both resulting sequences maintain a reactive relationship with the original sequence,
+///       ensuring that changes in one are reflected in the others.
+/// 
+/// - `reverse() -> Arc<Sequence<T>>`:
+///     - Asynchronously creates a reversed view of the sequence.
+///     - The reversed sequence is reactive, so modifications in either the original
+///       sequence or the reversed sequence are reflected in both.
+///
+/// - `modify(index: usize, value: T) -> Result<Compat<T>>`:
+///     - Asynchronously modifies the value at the specified index without replacing the entire Arc.
+///     - This operation ensures that changes are propagated reactively to any derived sequences.
+///     - Returns the previous value wrapped in a `Compat<T>`.
+///     - The index must be within bounds (index < length); otherwise, it returns an error.
+///
+/// ### -> `Usage`
+/// 
+/// ```
+/// use supersonic::sequence::prelude::{Sequence, Allocation, Length, Operation, Reactive, Candidate};
+/// use anyhow::Result;
+/// 
+/// async fn example() -> Result<()> {
+///     let sequence = Sequence::<i32>::allocate(10).await;
+///     for i in 0..10 {
+///         sequence.append(Candidate::Value(i as i32)).await?;
+///     }
+/// 
+///     let reversed = Reactive::reverse(&sequence).await;
+///     assert_eq!(reversed.length(), 10);
+///     for i in 0..10 {
+///         let value = reversed.get(i as usize, true).await;
+///         assert!(!value.empty());
+///         assert_eq!(*value.as_arc().await.read().await, (9 - i) as i32);
+///     }
+/// 
+///    // now check modification in original sequence changes reversed sequence
+///    // and vice versa
+///    // must use -> modify fn, not set fn
+///
+///    // Modify original sequence at index 3 (value should be 3)
+///    Reactive::modify(&sequence, 3, 100).await?;
+/// 
+///    // Check that reversed sequence at index 6 (which points to original index 3) reflects the change
+///    let value_in_reversed = reversed.get(6, true).await;
+///    assert!(!value_in_reversed.empty());
+///    assert_eq!(*value_in_reversed.as_arc().await.read().await, 100, "Modification in original should reflect in reversed");
+///
+///    // Modify reversed sequence at index 2 (which points to original index 7)
+///    Reactive::modify(&reversed, 2, 200).await?;
+///
+///    // Check that original sequence at index 7 reflects the change
+///    let value_in_original = sequence.get(7, true).await;
+///    assert!(!value_in_original.empty());
+///    assert_eq!(*value_in_original.as_arc().await.read().await, 200, "Modification in reversed should reflect in original");
+/// 
+///    Ok(())
+/// }
+/// 
+/// // to run asynchronous code blockingly in doctest (as doctest does not support async natively)
+/// supersonic::future!(example());
+/// ```
+/// 
+/// ### -> `Note`
+/// 
+/// The methods provided in this traits also contain non-reactive counterparts under `NonReactive<T>` trait.
+/// Therefore, ensure to choose the appropriate trait based on whether you require reactive behavior or not.
+/// `modify` method is exclusive to `Reactive<T>` trait as it deals with in-place modifications that need to be reflected reactively.
 pub trait Reactive<T>: Operation<T>
 where
     T: Send + Sync + 'static,
     Self: Sync
 {
 
+    /// Asynchronously extracts a subsequence defined by the specified range.
+    /// - The extracted subsequence maintains a reactive link to the original sequence,
+    ///   ensuring that changes in either sequence are reflected in the other.
+    /// - This operation is similar to draining, but the original sequence retains its elements.
+    /// 
+    /// ### -> `Usage`
+    /// 
+    /// ```
+    /// use supersonic::sequence::prelude::{Sequence, Allocation, Length, Operation, Reactive, Candidate};
+    /// use anyhow::Result;
+    /// 
+    /// async fn example() -> Result<()> {
+    ///     let sequence = Sequence::<i32>::allocate(10).await;
+    ///     for i in 0..10 {
+    ///         sequence.append(Candidate::Value(i as i32)).await?;
+    ///     }
+    /// 
+    ///     let extracted = Reactive::extract(&sequence, Some(2..7)).await;
+    ///     assert_eq!(extracted.length(), 5);
+    ///     for i in 0..5 {
+    ///         let value = extracted.get(i as usize, true).await;
+    ///         assert!(!value.empty());
+    ///         assert_eq!(*value.as_arc().await.read().await, (i + 2) as i32);
+    ///     }
+    /// 
+    ///     // Check that original sequence remains unchanged
+    ///     assert_eq!(sequence.length(), 10);
+    /// 
+    ///     Ok(())
+    /// }
+    /// 
+    /// // to run asynchronous code blockingly in doctest (as doctest does not support async natively)
+    /// supersonic::future!(example());
+    /// ```
+    /// 
+    /// ### -> `Note`
+    /// 
+    /// The extracted sequence is reactive, meaning modifications in either the original
+    /// sequence or the extracted sequence are reflected in both.
+    /// 
+    /// This method also has a non-reactive counterpart under `NonReactive<T>` trait.
     #[must_use = "Extraction of elements increments reference counts of pre-existing elements without removing them! Must serve a purpose!"]
     fn extract(&self, range: Option<std::ops::Range<usize>>) -> Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>;
     
+    /// Asynchronously creates a sliced view of the sequence based on the provided parameters.
+    /// - This is similar to Python-style slicing, supporting negative indices and steps.
+    /// - The sliced sequence is reactive, meaning modifications in either the original
+    ///   sequence or the slice are reflected in both.
+    /// 
+    /// ### -> `Usage`
+    /// 
+    /// ```
+    /// use supersonic::sequence::prelude::{Sequence, Allocation, Length, Operation, Reactive, Candidate};
+    /// use anyhow::Result;
+    /// 
+    /// async fn example() -> Result<()> {
+    ///     let sequence = Sequence::<i32>::allocate(10).await;
+    ///     for i in 0..10 {
+    ///         sequence.append(Candidate::Value(i as i32)).await?;
+    ///     }
+    /// 
+    ///     let sliced = Reactive::slice(&sequence, Some(2), Some(8), Some(2)).await;
+    ///     assert_eq!(sliced.length(), 3);
+    ///     for i in 0..3 {
+    ///         let value = sliced.get(i as usize, true).await;
+    ///         assert!(!value.empty());
+    ///         assert_eq!(*value.as_arc().await.read().await, (2 + i * 2) as i32);
+    ///     }
+    /// 
+    ///     Ok(())
+    /// }
+    /// 
+    /// // to run asynchronous code blockingly in doctest (as doctest does not support async natively)
+    /// supersonic::future!(example());
+    /// ```
+    /// 
+    /// ### -> `Note`
+    /// 
+    /// The sliced sequence is reactive, meaning modifications in either the original
+    /// sequence or the slice are reflected in both.
+    /// 
+    /// This method also has a non-reactive counterpart under `NonReactive<T>` trait.
     #[must_use = "Slicing is not 0 cost and must serve a purpose!"]
     fn slice(&self, start: Option<isize>, stop: Option<isize>, step: Option<isize>) -> Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>;
     
+    /// Asynchronously splits the sequence into two at the specified index.
+    /// - Both resulting sequences maintain a reactive relationship with the original sequence,
+    ///   ensuring that changes in one are reflected in the others.
+    /// 
+    /// ### -> `Usage`
+    /// 
+    /// ```
+    /// use supersonic::sequence::prelude::{Sequence, Allocation, Length, Operation, Reactive, Candidate};
+    /// use anyhow::Result;
+    /// 
+    /// async fn example() -> Result<()> {
+    ///    let sequence = Sequence::<i32>::allocate(10).await;
+    ///    for i in 0..10 {
+    ///        sequence.append(Candidate::Value(i as i32)).await?;
+    ///    }
+    ///
+    ///    let (first_half, second_half) = Reactive::split(&sequence, 5).await;
+    ///    assert_eq!(first_half.length(), 5);
+    ///    assert_eq!(second_half.length(), 5);
+    ///    for i in 0..5 {
+    ///        let value_first = first_half.get(i as usize, true).await;
+    ///        assert!(!value_first.empty());
+    ///        assert_eq!(*value_first.as_arc().await.read().await, i as i32);
+    ///
+    ///        let value_second = second_half.get(i as usize, true).await;
+    ///        assert!(!value_second.empty());
+    ///        assert_eq!(*value_second.as_arc().await.read().await, (i + 5) as i32);
+    ///    } 
+    /// 
+    ///    Ok(())
+    /// }
+    ///
+    /// // to run asynchronous code blockingly in doctest (as doctest does not support async natively)
+    /// supersonic::future!(example());
+    /// ```
+    /// 
+    /// ### -> `Note`
+    /// 
+    /// Both resulting sequences are reactive, ensuring that modifications in one
+    /// are reflected in the others.
+    /// 
+    /// This method also has a non-reactive counterpart under `NonReactive<T>` trait.
     #[must_use = "Splitting is not 0 cost and must serve a purpose!"]
     fn split(&self, index: usize) -> Pin<Box<dyn Future<Output = (Arc<Self::SelfType>, Arc<Self::SelfType>)> + Send + '_>>;
 
+    /// Asynchronously creates a reversed view of the sequence.
+    /// - The reversed sequence is reactive, so modifications in either the original
+    ///   sequence or the reversed sequence are reflected in both.
+    /// 
+    /// ### -> `Usage`
+    /// 
+    /// ```
+    /// use supersonic::sequence::prelude::{Sequence, Allocation, Length, Operation, Reactive, Candidate};
+    /// use anyhow::Result;
+    /// 
+    /// async fn example() -> Result<()> {
+    ///     let sequence = Sequence::<i32>::allocate(10).await;
+    ///     for i in 0..10 {
+    ///         sequence.append(Candidate::Value(i as i32)).await?;
+    ///     }
+    /// 
+    ///     let reversed = Reactive::reverse(&sequence).await;
+    ///     assert_eq!(reversed.length(), 10);
+    ///     for i in 0..10 {
+    ///         let value = reversed.get(i as usize, true).await;
+    ///         assert!(!value.empty());
+    ///         assert_eq!(*value.as_arc().await.read().await, (9 - i) as i32);
+    ///     }
+    /// 
+    ///     Ok(())
+    /// }
+    /// 
+    /// // to run asynchronous code blockingly in doctest (as doctest does not support async natively)
+    /// supersonic::future!(example());
+    /// ```
+    /// 
+    /// ### -> `Note`
+    /// 
+    /// The reversed sequence is reactive, meaning modifications in either the original
+    /// sequence or the reversed sequence are reflected in both.
+    /// 
+    /// This method also has a non-reactive counterpart under `NonReactive<T>` trait.
     #[must_use = "Reversing is not 0 cost and must serve a purpose!"]
     fn reverse(&self) -> Pin<Box<dyn Future<Output = Arc<Self::SelfType>> + Send + '_>>;
 
-    /// modifies the value inside the arc (without replacing) (reactive)
+    /// Asynchronously modifies the value at the specified index without replacing the entire Arc.
+    /// - This operation ensures that changes are propagated reactively to any derived sequences.
+    /// - Returns the previous value wrapped in a `Compat<T>`.
+    /// - The index must be within bounds (index < length); otherwise, it returns an error.
+    /// 
+    /// ### -> `Usage`
+    /// 
+    /// ```
+    /// use supersonic::sequence::prelude::{Sequence, Allocation, Length, Operation, Reactive, Candidate};
+    /// use anyhow::Result;
+    /// 
+    /// async fn example() -> Result<()> {
+    ///     let sequence = Sequence::<i32>::allocate(5).await;
+    ///     for i in 0..5 {
+    ///         sequence.append(Candidate::Value(i as i32)).await?;
+    ///     }
+    /// 
+    ///     let old_value = Reactive::modify(&sequence, 2, 20).await?;
+    ///     assert!(!old_value.empty());
+    /// 
+    ///     let new_value = sequence.get(2, true).await;
+    ///     assert!(!new_value.empty());
+    /// 
+    ///     assert_eq!(*new_value.as_arc().await.read().await, 20);
+    /// 
+    ///     Ok(())
+    /// }
+    /// 
+    /// // to run asynchronous code blockingly in doctest (as doctest does not support async natively)
+    /// supersonic::future!(example());
+    /// ```
+    /// 
+    /// ### -> `Note`
+    /// 
+    /// This method is exclusive to `Reactive<T>` trait as it deals with in-place modifications
+    /// that need to be reflected reactively.
+    /// 
+    /// This method does not have a non-reactive counterpart as modifying in place
     fn modify(&self, index: usize, value: T) -> Pin<Box<dyn Future<Output = anyhow::Result<Self::ArcSwapRef>> + Send + '_>>;
+
 }
 
 pub trait NonReactive<T>: Operation<T>
