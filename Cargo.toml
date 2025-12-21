@@ -3,6 +3,16 @@ name = "supersonic"
 version = "0.1.0"
 edition = "2024"
 build = "build.rs"
+publish = true
+authors = ["d33pster <deep.main.ac@gmail.com>"]
+description = "A one-stop rust crate for high-speed, high-performance, high-concurrency data-structures."
+repository = "https://github.com/d33p0st/supersonic.git"
+homepage = "https://github.com/d33p0st/supersonic"
+documentation = "https://docs.rs/supersonic"
+readme = "README.md"
+categories = ["data-structures", "concurrency", "asynchronous", "memory-management"]
+keywords = ["data-structures", "concurrency", "lock-free", "high-performance", "async"]
+license = "MIT OR Apache-2.0"
 
 [lib]
 name = "supersonic"
