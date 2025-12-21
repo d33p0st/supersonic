@@ -232,5 +232,5 @@ at your option.
 ---
 
 <div align="center">
-  <sub>Built with ❤️ by <a href="https://github.com/d33p0st">d33pster</a></sub>
+  <sub>Built with ❤️ by <a href="https://github.com/d33p0st">d33p0st</a></sub>
 </div>
