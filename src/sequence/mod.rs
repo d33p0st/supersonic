@@ -41,12 +41,14 @@ impl <T> Drop for Container<T> {
     }
 }
 
-/// ### -> `Sequence<T>` - A high-speed, high-performance, high-concurrency, lock-free, thread-safe, reactive sequence data structure.
+/// ### -> `Sequence<T>` - A high-speed, high-performance, high-concurrency, thread-safe, MPMC, internally synchronized, reactive sequence data structure.
 /// 
 /// `Sequence<T>` is a high-speed, high-performance, high-concurrency data structure that provides a dynamic array
 /// with atomic operations, automatic resizing, and comprehensive reactive capabilities. It is
-/// designed for demanding multi-threaded environments where multiple threads need to safely access and
-/// modify a shared sequence of elements with minimal latency and maximum throughput.
+/// **thread-safe**, supports **MPMC (Multiple Producer Multiple Consumer) with serialized writes**, and is
+/// **internally synchronized** for safe concurrent access. Designed for demanding multi-threaded environments
+/// where multiple threads need to safely access and modify a shared sequence of elements with minimal latency
+/// and maximum throughput.
 /// 
 /// ### -> `Reactivity Explained`
 /// 
@@ -67,10 +69,11 @@ impl <T> Drop for Container<T> {
 /// 
 /// ### -> `Core Features`
 /// 
-/// - **Lock-Free Operations**: Utilizes atomic operations (`AtomicPtr`, `AtomicUsize`) for most read operations,
-///   minimizing contention and maximizing throughput.
-/// - **Thread-Safe**: All operations are safe to call from multiple threads concurrently. The sequence
-///   uses `Arc<RwLock<()>>` for synchronization of write operations.
+/// - **Thread-Safe**: All operations are safe to call from multiple threads concurrently.
+/// - **MPMC (Multiple Producer Multiple Consumer)**: Supports concurrent readers and writers, with writes
+///   serialized through internal locking (`Arc<RwLock<()>>`) to maintain consistency.
+/// - **Internally Synchronized**: Utilizes atomic operations (`AtomicPtr`, `AtomicUsize`) with fine-tuned
+///   memory ordering, eliminating the need for external synchronization primitives.
 /// - **Dynamic Capacity**: Automatically grows when needed, with a custom-tailored growth strategy to avoid
 ///   multiple simulataneous resizes.
 /// - **Reactive Updates**: Elements can be modified in-place reactively (affecting all references)
@@ -124,7 +127,7 @@ impl <T> Drop for Container<T> {
 /// ### -> `Concurrency Model`
 /// 
 /// - **Read Operations**: Most read operations use atomic loads with `Relaxed` ordering under read locks, providing
-///   lock-free reads with minimal overhead and reduced memory fence operations.
+///   minimal overhead and reduced memory fence operations through optimized memory ordering.
 /// - **Write Operations**: Write operations acquire a write lock to ensure exclusive access during modifications.
 ///   All intermediate atomic operations use `Relaxed` ordering, with a final `Release` operation or fence to
 ///   ensure visibility of all changes to other threads.
@@ -257,7 +260,7 @@ impl <T> Drop for Container<T> {
 ///   web servers, proxies, or message brokers handling thousands of concurrent connections.
 /// 
 /// - **Scientific Computing**: Shared work queues in parallel algorithms, particle simulations,
-///   or distributed computation frameworks requiring lock-free coordination.
+///   or distributed computation frameworks requiring high-throughput concurrent coordination.
 /// 
 /// - **Audio/Video Processing**: Real-time audio sample buffers, video frame queues, and DSP pipelines
 ///   where bounded latency is critical for avoiding glitches.
@@ -265,14 +268,33 @@ impl <T> Drop for Container<T> {
 /// - **Blockchain/Distributed Systems**: Transaction pools, mempool management, and consensus
 ///   message queues requiring high-throughput concurrent access.
 /// 
-/// The combination of lock-free reads, optimized memory ordering, and reactive capabilities makes
+/// The combination of optimized memory ordering, MPMC support, internal synchronization, and reactive capabilities makes
 /// `Sequence<T>` ideal for any scenario demanding **high speed**, **high performance**, and **high concurrency**.
+/// 
+/// ### -> `Comparison with Other Data Structures`
+/// 
+/// **Sequence<T> vs crossbeam's ArrayQueue:**
+/// 
+/// - **ArrayQueue**: A **pipe** - data flows through in FIFO order. Once dequeued, elements are consumed
+///   and removed from the queue. Perfect for work distribution where each task is processed once.
+///   
+/// - **Sequence<T>**: A **shared timeline** - all elements remain accessible and can be read/modified
+///   by multiple threads concurrently. Elements can be accessed by index, modified in-place (reactively),
+///   or extracted into new sequences. Perfect for shared state, event logs, or scenarios requiring
+///   random access with concurrent modifications.
+/// 
+/// **Key Differences:**
+/// - ArrayQueue: Fixed capacity, single-pass consumption, no random access
+/// - Sequence<T>: Dynamic capacity, persistent elements, full random access, reactive updates
+/// 
+/// **When to use Sequence<T>:** When you need a shared, mutable, indexable collection that multiple
+/// threads can read and modify concurrently, with elements persisting beyond a single read.
 /// 
 /// ### -> `Thread Safety`
 /// 
 /// `Sequence<T>` is fully thread-safe when `T: Send + Sync`. Multiple threads can:
-/// - Read from the same sequence concurrently without contention (lock-free reads).
-/// - Write to the same sequence concurrently (writes are serialized via internal locking).
+/// - Read from the same sequence concurrently with minimal contention (internally synchronized reads).
+/// - Write to the same sequence concurrently (writes are serialized via internal locking for consistency).
 /// - Clone and share the sequence across threads cheaply (Arc-based sharing).
 /// 
 /// ### -> `Notes`

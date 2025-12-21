@@ -6,7 +6,7 @@
 
 **A high-speed, high-performance, high-concurrency data structures library for Rust.**
 
-Supersonic provides blazingly fast, thread-safe data structures optimized for demanding multi-threaded environments. Built with fine-tuned memory ordering, lock-free reads, and reactive capabilities, Supersonic is designed for scenarios where microsecond latency and maximum throughput are critical.
+Supersonic provides blazingly fast, thread-safe data structures optimized for demanding multi-threaded environments. Built with fine-tuned memory ordering, MPMC support, internal synchronization, and reactive capabilities, Supersonic is designed for scenarios where microsecond latency and maximum throughput are critical.
 
 ---
 
@@ -27,13 +27,15 @@ Supersonic provides blazingly fast, thread-safe data structures optimized for de
 
 ## ✨ Features
 
-- **🔥 High-Speed Operations**: Lock-free reads and optimized memory ordering for minimal latency
+- **🔥 High-Speed Operations**: Optimized memory ordering and atomic operations for minimal latency
 - **⚡ High Performance**: Fine-tuned atomic operations with Relaxed + Release patterns (5-20% faster than naive implementations)
 - **🔀 High Concurrency**: Designed for heavy multi-threaded workloads with minimal contention
 - **🔄 Reactive Capabilities**: Share data modifications across references or create isolated copies
 - **📦 Zero-Copy Cloning**: Arc-based sharing makes cloning extremely cheap
 - **🎯 Rich API**: Stack, queue, list operations plus advanced features like slicing, splitting, and draining
 - **🔒 Thread-Safe**: All operations are safe to call from multiple threads concurrently
+- **🔀 MPMC Support**: Multiple Producer Multiple Consumer with serialized writes
+- **⚙️ Internally Synchronized**: No external synchronization primitives needed
 - **📊 Serialization**: Built-in bincode support for efficient binary serialization
 
 ---
@@ -102,12 +104,13 @@ async fn main() -> Result<()> {
 
 ### `Sequence<T>`
 
-A high-speed, high-performance, high-concurrency, lock-free, thread-safe, reactive sequence data structure.
+A high-speed, high-performance, high-concurrency, thread-safe, MPMC, internally synchronized, reactive sequence data structure.
 
 #### Key Features
 
-- **Lock-Free Reads**: Most read operations use atomic loads without acquiring locks
-- **Memory Ordering Optimization**: Uses Relaxed ordering under locks with Release fences for 5-20% performance improvement
+- **Thread-Safe**: Safe to use from multiple threads concurrently
+- **MPMC Support**: Multiple producers and consumers with serialized writes for consistency
+- **Internally Synchronized**: Uses atomic operations with optimized memory ordering
 - **Dynamic Growth**: Automatically resizes when capacity is exceeded
 - **Dual Nature**: Supports both reactive (shared) and non-reactive (isolated) operations
 
@@ -170,9 +173,9 @@ container.length.store(len, Release);    // Publishes all changes
 - Moderate use: **5-10% improvement**
 - Bulk operations (slice, split, drain): **10-20% improvement**
 
-### Lock-Free Reads
+### Optimized Read Operations
 
-Read operations use atomic loads without acquiring locks when synchronization is optional, enabling true concurrent reads with zero contention.
+Read operations use atomic loads with fine-tuned memory ordering, enabling concurrent reads with minimal overhead and zero contention when synchronization is optional.
 
 ---
 
