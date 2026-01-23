@@ -6,6 +6,9 @@ mod compat;
 mod traits;
 use traits::Allocation;
 
+#[cfg(all(feature = "nightly", nightly))]
+use core::intrinsics::{likely, unlikely};
+
 struct Container<T> {
     slots: Box<[AtomicPtr<RwLock<T>>]>,
     capacity: AtomicUsize,
@@ -318,13 +321,37 @@ where
 {
     /// does not hold synchronization lock!
     /// the caller has to get the lock - as this function is internal.
+    #[cold]
     async fn resize(&self, upto: usize)  {
-        assert!(upto > 0, "Capacity must be greater than zero!");
+
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(upto == 0) {
+                panic!("Capacity must be greater than zero!");
+            }
+        }
+
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(upto > 0, "Capacity must be greater than zero!");
+        }
         
         let container_new = Arc::new(Container::<T>::allocate(upto).await);
+        let container_pointer = self.container.load(std::sync::atomic::Ordering::Relaxed);
+        
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(container_pointer.is_null()) {
+                panic!("Sequence pointer is null!");
+            }
+        }
 
-        let container_pointer = self.container.load(std::sync::atomic::Ordering::Acquire);
-        assert!(!container_pointer.is_null(), "Sequence pointer is null!");
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(!container_pointer.is_null(), "Sequence pointer is null!");
+        }
+        
+        
         let container_old = unsafe {
             Arc::increment_strong_count(container_pointer as *const Container<T>);
             Arc::from_raw(container_pointer)
@@ -340,9 +367,20 @@ where
                 let pointer = container_old.slots[i].load(std::sync::atomic::Ordering::Relaxed);
                 container_new.slots[i].store(pointer, std::sync::atomic::Ordering::Relaxed);
                 
-                // Increment ref count only for non-null pointers
-                if !pointer.is_null() {
-                    Arc::increment_strong_count(pointer as *const RwLock<T>);
+                #[cfg(all(feature = "nightly", nightly))]
+                {
+                    if likely(!pointer.is_null()) {
+                        Arc::increment_strong_count(pointer as *const RwLock<T>);
+                    }
+                }
+
+                #[cfg(not(all(feature = "nightly", nightly)))]
+                {
+                
+                    // Increment ref count only for non-null pointers
+                    if !pointer.is_null() {
+                        Arc::increment_strong_count(pointer as *const RwLock<T>);
+                    }
                 }
             }
         }
@@ -361,9 +399,21 @@ where
         crate::drop!(container_old, _swapped_container);
     }
 
+    #[inline]
     async fn shift(&self, from: usize) {
-        let pointer = self.container.load(std::sync::atomic::Ordering::Acquire);
-        assert!(!pointer.is_null(), "Sequence pointer is null!");
+        let pointer = self.container.load(std::sync::atomic::Ordering::Relaxed);
+
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(pointer.is_null()) {
+                panic!("Sequence pointer is null!");
+            }
+        }
+
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(!pointer.is_null(), "Sequence pointer is null!");
+        }
         
         let mut container = unsafe {
             Arc::increment_strong_count(pointer as *const Container<T>);
@@ -378,7 +428,17 @@ where
             return;
         }
 
-        assert!(length <= capacity, "Invariant violation: length {} exceeds capacity {}.", length, capacity);
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(length > capacity) {
+                panic!("Invariant violation: length {} exceeds capacity {}.", length, capacity);
+            }
+        }
+
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(length <= capacity, "Invariant violation: length {} exceeds capacity {}.", length, capacity);
+        }
 
         // Loop until we have enough capacity
         while length == capacity {
@@ -387,8 +447,20 @@ where
             self.resize(upto).await;
             
             // Reload container after resize
-            let pointer = self.container.load(std::sync::atomic::Ordering::Acquire);
-            assert!(!pointer.is_null(), "Sequence pointer is null!");
+            let pointer = self.container.load(std::sync::atomic::Ordering::Relaxed);
+
+            #[cfg(all(feature = "nightly", nightly))]
+            {
+                if unlikely(pointer.is_null()) {
+                    panic!("Sequence pointer is null!");
+                }
+            }
+
+            #[cfg(not(all(feature = "nightly", nightly)))]
+            {
+                assert!(!pointer.is_null(), "Sequence pointer is null!");
+            }
+
             container = unsafe {
                 Arc::increment_strong_count(pointer as *const Container<T>);
                 Arc::from_raw(pointer)
@@ -408,14 +480,29 @@ where
                 // Store it in the next slot, getting what was displaced
                 let displaced = container.slots[i + 1].swap(src, std::sync::atomic::Ordering::Relaxed);
                 
-                // Increment ref count for the moved pointer (if not null)
-                if !src.is_null() {
-                    Arc::increment_strong_count(src);
+                #[cfg(all(feature = "nightly", nightly))]
+                {
+                    // src should always be non-null within [from..length) - invariant
+                    if unlikely(src.is_null()) {
+                        panic!("Invariant violation: slot {} is null within bounds", i);
+                    }
+                    Arc::increment_strong_count(src as *const RwLock<T>);
+                    
+                    // displaced is usually null (empty slots after shift)
+                    if unlikely(!displaced.is_null()) {
+                        crate::drop!(Arc::from_raw(displaced));
+                    }
                 }
-                
-                // Drop the displaced value
-                if !displaced.is_null() {
-                    crate::drop!(Arc::from_raw(displaced));
+
+                #[cfg(not(all(feature = "nightly", nightly)))]
+                {
+                    // src should always be non-null within [from..length) - invariant
+                    assert!(!src.is_null(), "Invariant violation: slot {} is null within bounds", i);
+                    Arc::increment_strong_count(src as *const RwLock<T>);
+
+                    if !displaced.is_null() {
+                        crate::drop!(Arc::from_raw(displaced));
+                    }
                 }
                 
                 // Clear the source slot
@@ -441,10 +528,23 @@ where
         new_capacity.max(required)
     }
 
+    #[inline(always)]
     async fn append_candidate(&self, value: crate::Candidate<T>) {
         let synchronization_handle = self.synchronization_handle.write().await;
-        let pointer = self.container.load(std::sync::atomic::Ordering::Acquire);
-        assert!(!pointer.is_null(), "Sequence pointer is null!");
+        let pointer = self.container.load(std::sync::atomic::Ordering::Relaxed);
+
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(pointer.is_null()) {
+                panic!("Sequence pointer is null!");
+            }
+        }
+
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(!pointer.is_null(), "Sequence pointer is null!");
+        }
+
         let mut container = unsafe {
             Arc::increment_strong_count(pointer as *const Container<T>);
             Arc::from_raw(pointer)
@@ -453,21 +553,56 @@ where
         let mut length = container.length.load(std::sync::atomic::Ordering::Relaxed);
         let capacity = container.capacity.load(std::sync::atomic::Ordering::Relaxed);
 
-        assert!(length <= capacity, "Invariant violation: length {} exceeds capacity {}.", length, capacity);
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(length > capacity) {
+                panic!("Invariant violation: length {} exceeds capacity {}.", length, capacity);
+            }
+        }
 
-        if length == capacity {
-            let upto = self.generate_capacity(capacity, length + 1).await;
-            self.resize(upto).await;
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(length <= capacity, "Invariant violation: length {} exceeds capacity {}.", length, capacity);
+        }
 
-            // reload container
-            let pointer = self.container.load(std::sync::atomic::Ordering::Acquire);
-            assert!(!pointer.is_null(), "Sequence pointer is null!");
-            container = unsafe {
-                Arc::increment_strong_count(pointer as *const Container<T>);
-                Arc::from_raw(pointer)
-            };
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(length == capacity) {
+                let upto = self.generate_capacity(capacity, length + 1).await;
+                self.resize(upto).await;
 
-            length = container.length.load(std::sync::atomic::Ordering::Relaxed);
+                // reload container
+                let pointer = self.container.load(std::sync::atomic::Ordering::Relaxed);
+
+                if unlikely(pointer.is_null()) {
+                    panic!("Sequence pointer is null!");
+                }
+
+                container = unsafe {
+                    Arc::increment_strong_count(pointer as *const Container<T>);
+                    Arc::from_raw(pointer)
+                };
+
+                length = container.length.load(std::sync::atomic::Ordering::Relaxed);
+            }
+        }
+
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            if length == capacity {
+                let upto = self.generate_capacity(capacity, length + 1).await;
+                self.resize(upto).await;
+
+                // reload container
+                let pointer = self.container.load(std::sync::atomic::Ordering::Relaxed);
+                assert!(!pointer.is_null(), "Sequence pointer is null!");
+                container = unsafe {
+                    Arc::increment_strong_count(pointer as *const Container<T>);
+                    Arc::from_raw(pointer)
+                };
+
+                length = container.length.load(std::sync::atomic::Ordering::Relaxed);
+            }
         }
 
         let arc_new = match value {
@@ -492,9 +627,58 @@ where
         sequence
     }
 
+    /// Returns the current capacity of the sequence.
+    /// 
+    /// The capacity represents the maximum number of elements the sequence can hold
+    /// before requiring reallocation. The capacity is always greater than or equal to
+    /// the length.
+    /// 
+    /// This is a synchronous operation with O(1) complexity that performs an atomic
+    /// load to read the capacity value.
+    /// 
+    /// # Returns
+    /// 
+    /// The current capacity as a `usize`.
+    /// 
+    /// # Examples
+    /// 
+    /// ```
+    /// use supersonic::sequence::prelude::*;
+    /// 
+    /// async fn example() {
+    ///     let seq = Sequence::<i32>::allocate(10).await;
+    ///     assert_eq!(seq.capacity(), 10);
+    ///     
+    ///     // Capacity remains unchanged after adding elements
+    ///     seq.push(Candidate::Value(1)).await;
+    ///     seq.push(Candidate::Value(2)).await;
+    ///     assert_eq!(seq.capacity(), 10);
+    ///     assert_eq!(seq.length(), 2);
+    /// }
+    /// 
+    /// supersonic::future!(example());
+    /// ```
+    /// 
+    /// # Performance
+    /// 
+    /// This operation performs a single atomic load with `SeqCst` ordering to ensure
+    /// the most up-to-date capacity value is returned, even across multiple threads.
+    #[inline(always)]
     pub fn capacity(&self) -> usize {
         let pointer = self.container.load(std::sync::atomic::Ordering::Acquire);
-        assert!(!pointer.is_null(), "Sequence pointer is null!");
+        
+        #[cfg(all(feature = "nightly", nightly))]
+        {
+            if unlikely(pointer.is_null()) {
+                panic!("Sequence pointer is null!");
+            }
+        }
+
+        #[cfg(not(all(feature = "nightly", nightly)))]
+        {
+            assert!(!pointer.is_null(), "Sequence pointer is null!");
+        }
+
         let container = unsafe {
             Arc::increment_strong_count(pointer as *const Container<T>);
             Arc::from_raw(pointer)

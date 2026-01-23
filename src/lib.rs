@@ -1,24 +1,15 @@
+#![allow(internal_features)]
+#![cfg_attr(all(feature = "nightly", nightly), feature(core_intrinsics))]
+
 #![allow(dead_code)]
 #![allow(unused)]
 
 use std::sync::Arc;
 use tokio::sync::RwLock;
 
-#[cfg(all(feature = "nightly", not(nightly)))]
+#[cfg(all(not(nightly), feature = "nightly"))]
 compile_error!("The `nightly` feature requires a nightly compiler");
 
-
-#[derive(Clone)]
-pub enum Candidate<T> {
-    Value(T),
-    Arc(Arc<RwLock<T>>)
-}
-
-#[derive(Clone)]
-pub enum BincodeConfiguration {
-    Standard,
-    Legacy,
-}
 
 #[macro_export]
 macro_rules! future {
@@ -34,5 +25,4 @@ macro_rules! drop {
     };
 }
 
-#[cfg(feature = "sequence")]
-pub mod sequence;
+pub mod mpmc;
