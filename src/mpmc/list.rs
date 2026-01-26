@@ -64,4 +64,14 @@ impl <T> List<T> {
             Some(&*(*slot.value.get()).as_ptr())
         }
     }
+
+    #[inline(always)]
+    pub async fn length(&self) -> usize {
+        self.write_index.load(Ordering::Acquire).min(self.capacity)
+    }
+
+    #[inline(always)]
+    pub async fn capacity(&self) -> usize {
+        self.capacity
+    }
 }
