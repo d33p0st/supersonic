@@ -44,12 +44,23 @@ impl <T> List<T> {
     }
 
     #[inline(always)]
+    /// Only to be used for index that is known to be already filled (updattion)
+    /// as this might cause discrepensies in length
     pub async unsafe fn write(&self, index: usize, value: T) {
         let slot = &self.slots[index];
         unsafe {
             (*slot.value.get()).as_mut_ptr().write(value);
         }
         slot.ready.store(true, Ordering::Release);
+    }
+
+    #[inline(always)]
+    /// to be used 
+    pub async unsafe fn append(&self, value: T) {
+        let index = self.write_index.fetch_add(1, Ordering::Relaxed);
+        unsafe {
+            self.write(index, value).await;
+        }
     }
 
     #[inline(always)]
